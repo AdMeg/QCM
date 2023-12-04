@@ -1,5 +1,6 @@
 // Map pour stocker les relations entre les questions
 var questionMap = new Map();
+var selectedValues = [];
 var RADIO = 1, CHECK = 2;
 var verifResult = false;
 
@@ -37,97 +38,114 @@ var questions = {questions: [question1, question2], valid: 80, start: '2023-11-2
 var currentQuestionIndex = 0;
 
 // Appeler la fonction avec la première question
-createQuiz(questions.questions[currentQuestionIndex]);
+createQuiz();
 
 // Fonction pour créer dynamiquement un QCM
-function createQuiz(question) {
-    // Titre de la question
-    var questionTitle = document.createElement('h2');
-    questionTitle.textContent = question.title;
-    container.appendChild(questionTitle);
+function createQuiz() {
 
-    // Afficher la source (image ou vidéo) si elle est fournie
-    if (question.source) {
-        var mediaElement;
+    for (var question_nb = 0; question_nb < questions.questions.length; question_nb++) {
 
-        // Vérifier le type de source
-        if (isYouTubeLink(question.source)) {
-            // Source est un lien YouTube
-            var videoId = getYouTubeVideoId(question.source);
-            if (videoId) {
-                // Créer l'élément d'incorporation de la vidéo YouTube
-                mediaElement = document.createElement('iframe');
-                mediaElement.src = 'https://www.youtube.com/embed/' + videoId;
-                mediaElement.frameborder = '0';
-                mediaElement.allowfullscreen = true;
+        var question = questions.questions[question_nb];
+
+        // Div de la question
+        let questionDiv = document.createElement('div');
+        questionDiv.id = question_nb;
+        container.appendChild(questionDiv);
+
+        // Titre de la question
+        var questionTitle = document.createElement('h2');
+        questionTitle.textContent = question.title;
+        questionDiv.appendChild(questionTitle);
+
+        // Afficher la source (image ou vidéo) si elle est fournie
+        if (question.source) {
+            var mediaElement;
+
+            // Vérifier le type de source
+            if (isYouTubeLink(question.source)) {
+                // Source est un lien YouTube
+                var videoId = getYouTubeVideoId(question.source);
+                if (videoId) {
+                    // Créer l'élément d'incorporation de la vidéo YouTube
+                    mediaElement = document.createElement('iframe');
+                    mediaElement.src = 'https://www.youtube.com/embed/' + videoId;
+                    mediaElement.frameborder = '0';
+                    mediaElement.allowfullscreen = true;
+                }
+            } else if (question.source.endsWith('.mp4') || question.source.endsWith('.webm') || question.source.endsWith('.ogg')) {
+                // Source est une vidéo
+                mediaElement = document.createElement('video');
+                mediaElement.src = question.source;
+                mediaElement.controls = true; // Ajouter les contrôles de lecture/pause
+            } else if (question.source.endsWith('.jpg') || question.source.endsWith('.jpeg') || question.source.endsWith('.png') || question.source.endsWith('.gif')) {
+                // Source est une image
+                mediaElement = document.createElement('img');
+                mediaElement.src = question.source;
             }
-        } else if (question.source.endsWith('.mp4') || question.source.endsWith('.webm') || question.source.endsWith('.ogg')) {
-            // Source est une vidéo
-            mediaElement = document.createElement('video');
-            mediaElement.src = question.source;
-            mediaElement.controls = true; // Ajouter les contrôles de lecture/pause
-        } else if (question.source.endsWith('.jpg') || question.source.endsWith('.jpeg') || question.source.endsWith('.png') || question.source.endsWith('.gif')) {
-            // Source est une image
-            mediaElement = document.createElement('img');
-            mediaElement.src = question.source;
+
+            // Ajouter l'élément média au conteneur
+            if (mediaElement) {
+                mediaElement.width = '560';
+                mediaElement.height = '315';
+                questionDiv.appendChild(mediaElement);
+            }
         }
 
-        // Ajouter l'élément média au conteneur
-        if (mediaElement) {
-            mediaElement.width = '560';
-            mediaElement.height = '315';
-            container.appendChild(mediaElement);
+        // Options de réponse
+        var options = question.options;
+        let input;
+        for (var i = 0; i < options.length; i++) {
+            
+            input = document.createElement('input');
+            switch (question.type) {
+                case RADIO:
+                    input.type = 'radio';
+                    break;
+                case CHECK:
+                    input.type = 'checkbox';
+                    break;
+                default:
+                    break;
+            }
+            input.name = options[i].name;
+            input.value = options[i].id;
+            
+            var label = document.createElement('label');
+            label.textContent = options[i].name;
+
+            questionDiv.appendChild(input);
+            questionDiv.appendChild(label);
         }
-    }
 
-    // Options de réponse
-    var options = question.options;
-    for (var i = 0; i < options.length; i++) {
-        
-        var input = document.createElement('input');
-        switch (question.type) {
-            case RADIO:
-                input.type = 'radio';
-                break;
-            case CHECK:
-                input.type = 'checkbox';
-                break;
-            default:
-                break;
+        if (question_nb > 0) {
+            var returnButton = document.createElement('button');
+            returnButton.textContent = "Retour";
+            returnButton.addEventListener('click', () => { previousQuestion() });
+            questionDiv.appendChild(returnButton);
         }
-        input.name = options[i].name;
-        input.value = options[i].id;
-        
-        var label = document.createElement('label');
-        label.textContent = options[i].name;
 
-        container.appendChild(input);
-        container.appendChild(label);
+        var questionButton = document.createElement('button');
+        if (question_nb + 1 == questions.questions.length)
+            questionButton.textContent = "Confirmer"
+        else
+            questionButton.textContent = "Suivant";
+        questionButton.addEventListener('click', () => { createQuestionMap(questionDiv.id, input) });
+        questionDiv.appendChild(questionButton);
+
+        updateProgressBar();
     }
 
-    if (currentQuestionIndex > 0) {
-        var returnButton = document.createElement('button');
-        returnButton.textContent = "Retour";
-        returnButton.addEventListener('click', () => { previousQuestion() });
-        container.appendChild(returnButton);
-    }
-
-    var questionButton = document.createElement('button');
-    questionButton.textContent = "Suivant";
-    questionButton.addEventListener('click', () => { createQuestionMap(question, input.type) });
-    container.appendChild(questionButton);
-
-    updateProgressBar();
-
+    displayQuiz();
+    
 }
 
 // Fonction pour créer la carte des questions
-function createQuestionMap(question, inputType) {
+function createQuestionMap(questionDivId, input) {
     // Récupérer tous les boutons radio ou checkboxes de la page
-    var response = document.querySelectorAll('input[type="' + inputType + '"]');
+    var response = document.getElementById(questionDivId).querySelectorAll('input[type="' + input.type + '"]');
 
     // Créer un tableau pour stocker les valeurs sélectionnées
-    var selectedValues = [];
+    selectedValues = [];
 
     // Parcourir les boutons pour trouver ceux qui sont cochés
     response.forEach(function (input) {
@@ -137,7 +155,7 @@ function createQuestionMap(question, inputType) {
     });
 
     // Ajouter l'ID de la question et les valeurs sélectionnées à la map
-    questionMap.set(question.id, selectedValues);
+    questionMap.set(questionDivId, selectedValues);
 
     // Afficher la carte des questions dans la console (à des fins de démonstration)
     console.log(questionMap);
@@ -148,16 +166,14 @@ function createQuestionMap(question, inputType) {
 
 // Fonction pour passer à la question suivante
 function nextQuestion() {
-    // Effacer le contenu du conteneur actuel
-    container.innerHTML = '';
-
     // Vérifier s'il y a une question suivante
     if (currentQuestionIndex < questions.questions.length - 1) {
         // Passer à la question suivante
         currentQuestionIndex++;
-        createQuiz(questions.questions[currentQuestionIndex]);
+        displayQuiz();
     } else {
         // Afficher les résultats
+        document.getElementById(currentQuestionIndex).style.display = 'none';
         displayResults();
     }
 
@@ -166,17 +182,28 @@ function nextQuestion() {
 
 // Fonction pour revenir à la question précédante
 function previousQuestion() {
-    // Effacer le contenu du conteneur actuel
-    container.innerHTML = '';
-
     // Vérifier s'il y a une question suivante
     if (currentQuestionIndex > 0) {
         // Passer à la question suivante
         currentQuestionIndex--;
-        createQuiz(questions.questions[currentQuestionIndex]);
+        displayQuiz();
     }
 
     updateProgressBar();
+}
+
+function displayQuiz() {
+    var allDivs = document.getElementById('quiz-container').querySelectorAll('div');
+
+    for (var i = 0; i < allDivs.length; i++) {
+        var currentDiv = allDivs[i];
+
+        if (parseInt(currentDiv.id) != currentQuestionIndex) {
+            currentDiv.style.display = 'none';
+        } else {
+            currentDiv.style.display = 'block';
+        }
+    }
 }
 
 // Fonction pour afficher les résultats à la fin du questionnaire
@@ -197,7 +224,7 @@ function displayResults() {
                 return option.id;
             });
 
-        var userOptions = questionMap.get(questions.questions[i].id);
+        var userOptions = questionMap.get(String(i));
 
         if (arraysEqual(originalOptions, userOptions)) {
             correctAnswersCount++;
