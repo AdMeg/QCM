@@ -92,6 +92,9 @@ function createQuiz() {
         }
 
         // Options de réponse
+        var questionOptions = document.createElement('options-block');
+        questionDiv.appendChild(questionOptions);
+
         var options = question.options;
         let input;
         for (var i = 0; i < options.length; i++) {
@@ -113,8 +116,11 @@ function createQuiz() {
             var label = document.createElement('label');
             label.textContent = options[i].name;
 
-            questionDiv.appendChild(input);
-            questionDiv.appendChild(label);
+            var questionOption = document.createElement('options');
+            questionOptions.appendChild(questionOption);
+
+            questionOption.appendChild(input);
+            questionOption.appendChild(label);
         }
 
         if (question_nb > 0) {
