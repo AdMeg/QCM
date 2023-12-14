@@ -1,11 +1,15 @@
-// Map pour stocker les relations entre les questions
 var questionMap = new Map();
 var selectedValues = [];
-var RADIO = 1, CHECK = 2;
 var verifResult = false;
+var questions;
 
 var container = document.getElementById('quiz-container');
 
+// Variable test
+var RADIO = 1, CHECK = 2;
+var ID_USER = 1;
+
+/*
 // Exemple de question
 var question1 = {
     id: 1,
@@ -33,15 +37,17 @@ var question2 = {
 };
 
 var questions = {questions: [question1, question2], valid: 80, start: '2023-11-27', end: '2023-11-30'}; // Tableau de questions
+*/
 
 // Index de la question actuelle
 var currentQuestionIndex = 0;
 
-// Appeler la fonction avec la première question
-createQuiz();
-
 // Fonction pour créer dynamiquement un QCM
 function createQuiz() {
+
+    let progressBar = document.createElement('progress');
+    progressBar.id = 'progressBar';
+    container.appendChild(progressBar);
 
     for (var question_nb = 0; question_nb < questions.questions.length; question_nb++) {
 
@@ -163,9 +169,6 @@ function createQuestionMap(questionDivId, input) {
     // Ajouter l'ID de la question et les valeurs sélectionnées à la map
     questionMap.set(questionDivId, selectedValues);
 
-    // Afficher la carte des questions dans la console (à des fins de démonstration)
-    console.log(questionMap);
-
     // Passer à la question suivante
     nextQuestion();
 }
@@ -255,6 +258,9 @@ function displayResults() {
 
     // Afficher les statistiques
     resultMessage.textContent = 'Résultats : ' + correctAnswersCount + ' / ' + questions.questions.length + ' questions correctes.';
+
+    var score = (correctAnswersCount / questions.questions.length) * 100
+    saveUserQuizScore(questions.id_quiz, ID_USER, score);
 }
 
 // Fonction pour comparer deux tableaux
@@ -322,3 +328,74 @@ function verifResultQuiz(originalOptions, userOptions, i) {
     }
     container.appendChild(responseDiv);
 }
+
+//Test serveur
+// Exemple de fonction pour effectuer une requête POST avec fetch
+function getQuizById(id_quiz) {
+    fetch('http://127.0.0.1:3000/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id_quiz: id_quiz, 
+            command: 'getQuizById'
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Gérer les données reçues ici
+        questions = data;
+        createQuiz();
+    })
+    .catch(error => {
+        console.error('Erreur lors de la requête:', error);
+    });
+}
+
+function saveUserQuizScore(id_quiz, id_user, score) {
+    const data = {
+        id_quiz: id_quiz,
+        id_user: id_user,
+        score: score,
+    };
+
+    fetch('http://127.0.0.1:3000/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            data: data, 
+            command: 'saveUserQuizScore'
+        }),
+    })
+    .catch(error => {
+        console.error('Erreur lors de la requête:', error);
+    });
+}
+  
+// Appeler la fonction pour récupérer les données du quiz
+getQuizById(1);
+
+function getAllQuizScore() {
+    fetch('http://127.0.0.1:3000/quiz-result', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            command: 'getAllQuizScore'
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Gérer les données reçues ici
+        console.log(data);
+    })
+    .catch(error => {
+        console.error('Erreur lors de la requête:', error);
+    });
+}
+
+getAllQuizScore();
