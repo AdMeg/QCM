@@ -22,6 +22,16 @@ dbConnection.connect((err) => {
 });
 
 const server = http.createServer((req, res) => {
+
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'HEAD, GET, POST, OPTIONS, PUT, PATCH, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.end();
+        return;
+    }
+
     if (req.method === 'POST') {
         let body = '';
 
