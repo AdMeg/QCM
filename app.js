@@ -1,3 +1,6 @@
+document.write('<script src="quiz.js"></script>');
+document.write('<script src="quiz-result.js"></script>');
+
 var questionMap = new Map();
 var selectedValues = [];
 var verifResult = false;
@@ -9,38 +12,45 @@ var container = document.getElementById('quiz-container');
 var RADIO = 1, CHECK = 2;
 var ID_USER = 1;
 
-/*
-// Exemple de question
-var question1 = {
-    id: 1,
-    title: 'Quelles sont les orthographes possibles ?',
-    source: 'https://urban-factory.com/3665-thickbox_default/hubee-mini-station-d-accueil-usb-c-multi-ecran-4k-100w.jpg',
-    options: [
-        {id: 100, name: 'Anguelo', state: true}, 
-        {id: 101, name: 'Enjilo', state: false}, 
-        {id: 102, name: 'Angelio', state: true}, 
-        {id: 103, name: 'Engilio', state: false}
-    ],
-    type: CHECK
-};
-
-var question2 = {
-    id: 2,
-    title: 'Quel est la chose la plus petite ?',
-    source: 'https://youtu.be/cMrTGqwJJXo?si=Mmt9ABPgKrqmYN1T',
-    options: [
-        {id: 200, name: 'Fourmi', state: true}, 
-        {id: 201, name: 'Microbe', state: false}, 
-        {id: 202, name: 'Angelo', state: false}
-    ],
-    type: RADIO
-};
-
-var questions = {questions: [question1, question2], valid: 80, start: '2023-11-27', end: '2023-11-30'}; // Tableau de questions
-*/
-
 // Index de la question actuelle
 var currentQuestionIndex = 0;
+
+// -- QUIZ -- //
+function createAllQuiz(data) {
+    var table = document.createElement('table');
+    container.appendChild(table);
+
+    // Create table header
+    var headerRow = table.insertRow(0);
+    var headers = ['Name', 'Start', 'End'];
+
+    for (var i = 0; i < headers.length; i++) {
+        var headerCell = headerRow.insertCell(i);
+        headerCell.textContent = headers[i];
+    }
+
+    // Iterate through quiz results
+    for (const quiz of data) {
+        let row = table.insertRow(-1);
+
+        // ID Quiz
+        var cell1 = row.insertCell(0);
+        cell1.textContent = quiz.name;
+
+        // ID User
+        var cell2 = row.insertCell(1);
+        cell2.textContent = quiz.start;
+
+        // Score
+        var cell3 = row.insertCell(2);
+        cell3.textContent = quiz.end;
+
+        row.addEventListener('click', () => { 
+            table.style.display = "none";
+            getQuizById(quiz.id_quiz);
+        });
+    }
+}
 
 // Fonction pour créer dynamiquement un QCM
 function createQuiz() {
@@ -329,10 +339,286 @@ function verifResultQuiz(originalOptions, userOptions, i) {
     container.appendChild(responseDiv);
 }
 
-//Test serveur
-// Exemple de fonction pour effectuer une requête POST avec fetch
+// -- QUIZ-RESULT -- //
+function createQuizResult(data) {
+    var table = document.createElement('table');
+    container.appendChild(table);
+
+    // Create table header
+    var headerRow = table.insertRow(0);
+    var headers = ['ID Quiz', 'ID User', 'Score'];
+
+    for (var i = 0; i < headers.length; i++) {
+        var headerCell = headerRow.insertCell(i);
+        headerCell.textContent = headers[i];
+    }
+
+    // Iterate through quiz results
+    for (const quiz_result of data) {
+        var row = table.insertRow(-1);
+
+        // ID Quiz
+        var cell1 = row.insertCell(0);
+        cell1.textContent = quiz_result.id_quiz;
+
+        // ID User
+        var cell2 = row.insertCell(1);
+        cell2.textContent = quiz_result.id_user;
+
+        // Score
+        var cell3 = row.insertCell(2);
+        cell3.textContent = quiz_result.score;
+    }
+}
+
+// -- QUIZ-MANAGE -- //
+function createQuizManage() {
+    var quizForm = createQuizForm();
+    container.appendChild(quizForm);
+}
+
+function createQuizForm() {
+    var form = document.createElement('div');
+
+    // Titre du questionnaire
+    var titleLabel = document.createElement('label');
+    titleLabel.textContent = 'Titre du questionnaire:';
+    form.appendChild(titleLabel);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.name = 'quizTitle';
+    form.appendChild(titleInput);
+
+    // Date de début
+    var startLabel = document.createElement('label');
+    startLabel.textContent = 'Date de début:';
+    form.appendChild(startLabel);
+
+    var startInput = document.createElement('input');
+    startInput.type = 'datetime-local';
+    startInput.name = 'quizStart';
+    form.appendChild(startInput);
+
+    // Date de fin
+    var endLabel = document.createElement('label');
+    endLabel.textContent = 'Date de fin:';
+    form.appendChild(endLabel);
+
+    var endInput = document.createElement('input');
+    endInput.type = 'datetime-local';
+    endInput.name = 'quizEnd';
+    form.appendChild(endInput);
+
+    // Score de validation
+    var validLabel = document.createElement('label');
+    validLabel.textContent = 'Score de validation:';
+    form.appendChild(validLabel);
+
+    var validInput = document.createElement('input');
+    validInput.type = 'number';
+    validInput.name = 'quizValid';
+    form.appendChild(validInput);
+
+    let buttonAddQuestion = document.createElement('button');
+    buttonAddQuestion.textContent = "Ajouter une question";
+    form.appendChild(buttonAddQuestion);
+
+    let buttonAddQuiz = document.createElement('button');
+    buttonAddQuiz.textContent = "Créer le quiz";
+    form.appendChild(buttonAddQuiz);
+
+    buttonAddQuestion.addEventListener('click', () => { 
+        form.appendChild(createQuestionForm(form));
+    });
+
+    buttonAddQuiz.addEventListener('click', () => { 
+        processQuizForm();
+    });
+
+    return form;
+}
+
+function createQuestionForm(form) {
+    var question_form = document.createElement('div');
+    question_form.classList.add('questionForm');
+    form.appendChild(question_form);
+
+    // Titre de la question
+    var titleLabel = document.createElement('label');
+    titleLabel.textContent = 'Titre de la question:';
+    question_form.appendChild(titleLabel);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.name = 'questionTitle';
+    question_form.appendChild(titleInput);
+
+    // Source de la question
+    var sourceLabel = document.createElement('label');
+    sourceLabel.textContent = 'Source de la question:';
+    question_form.appendChild(sourceLabel);
+
+    var sourceInput = document.createElement('input');
+    sourceInput.type = 'text';
+    sourceInput.name = 'questionSource';
+    question_form.appendChild(sourceInput);
+
+    // Type de la question
+    var typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Type de la question (Une réponse possible: RADIO, Plusieurs réponse possible: CHECK):';
+    question_form.appendChild(typeLabel);
+
+    var typeInput = document.createElement('select');
+    typeInput.name = 'questionType';
+
+    var option1 = document.createElement('option');
+    option1.value = '1';
+    option1.text = 'RADIO';
+    typeInput.add(option1);
+
+    var option2 = document.createElement('option');
+    option2.value = '2';
+    option2.text = 'CHECK';
+    typeInput.add(option2);
+
+    question_form.appendChild(typeInput);
+
+    var deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Supprimer';
+    question_form.appendChild(deleteButton);
+
+    deleteButton.addEventListener('click', function() {
+        form.removeChild(question_form);
+    });
+
+    let buttonAddOption = document.createElement('button');
+    buttonAddOption.textContent = "Ajouter une réponse";
+    question_form.appendChild(buttonAddOption);
+
+    buttonAddOption.addEventListener('click', () => { 
+        question_form.appendChild(createOptionForm(question_form));
+    });
+
+    return question_form;
+}
+
+function createOptionForm(question_form) {
+    var option_form = document.createElement('div');
+    option_form.classList.add('optionForm');
+    question_form.appendChild(option_form);
+
+    // Titre de la question
+    var titleLabel = document.createElement('label');
+    titleLabel.textContent = 'Nom de la réponse:';
+    option_form.appendChild(titleLabel);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.name = 'optionName';
+    option_form.appendChild(titleInput);
+
+    // Type de la option
+    var typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Réponse:';
+    option_form.appendChild(typeLabel);
+
+    var typeInput = document.createElement('select');
+    typeInput.name = 'optionType';
+
+    var option1 = document.createElement('option');
+    option1.value = '0';
+    option1.text = 'FAUX';
+    typeInput.add(option1);
+
+    var option2 = document.createElement('option');
+    option2.value = '1';
+    option2.text = 'VRAI';
+    typeInput.add(option2);
+
+    option_form.appendChild(typeInput);
+
+    var deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Supprimer';
+    option_form.appendChild(deleteButton);
+
+    deleteButton.addEventListener('click', function() {
+        question_form.removeChild(option_form);
+    });
+
+    return option_form;
+}
+
+function processQuizForm() {
+    var quizData = {
+        "questions": [],
+        "valid": 0,
+        "start": "",
+        "end": ""
+    };
+
+    // Titre du questionnaire
+    quizData.title = document.querySelector('input[name="quizTitle"]').value;
+
+    // Date de début
+    quizData.start = document.querySelector('input[name="quizStart"]').value;
+
+    // Date de fin
+    quizData.end = document.querySelector('input[name="quizEnd"]').value;
+
+    // Score de validation
+    quizData.valid = parseInt(document.querySelector('input[name="quizValid"]').value);
+
+    // Traitement des questions
+    var questionForms = document.querySelectorAll('.questionForm');
+    questionForms.forEach(function (questionForm) {
+        var questionData = {
+            "title": questionForm.querySelector('input[name="questionTitle"]').value,
+            "source": questionForm.querySelector('input[name="questionSource"]').value,
+            "options": [],
+            "type": parseInt(questionForm.querySelector('select[name="questionType"]').value)
+        };
+
+        // Traitement des options
+        var optionForms = questionForm.querySelectorAll('.optionForm');
+        optionForms.forEach(function (optionForm) {
+            var optionData = {
+                "name": optionForm.querySelector('input[name="optionName"]').value,
+                "state": optionForm.querySelector('select[name="optionType"]').value === '1' ? true : false
+            };
+            questionData.options.push(optionData);
+        });
+
+        quizData.questions.push(questionData);
+    });
+
+    // Affichage dans la console
+    console.log(JSON.stringify(quizData, null, 2));
+    insertNewQuiz(quizData);
+}
+
+// -- API SERVER -- //
+function getAllQuiz() {
+    fetch('http://10.114.236.239:3000/quiz', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            command: 'getAllQuiz'
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        createAllQuiz(data);
+    })
+    .catch(error => {
+        console.error('Erreur lors de la requête:', error);
+    });
+}
+
 function getQuizById(id_quiz) {
-    fetch('http://127.0.0.1:3000/', {
+    fetch('http://10.114.236.239:3000/quiz', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -360,7 +646,7 @@ function saveUserQuizScore(id_quiz, id_user, score) {
         score: score,
     };
 
-    fetch('http://127.0.0.1:3000/', {
+    fetch('http://127.0.0.1:3000/quiz', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -374,12 +660,14 @@ function saveUserQuizScore(id_quiz, id_user, score) {
         console.error('Erreur lors de la requête:', error);
     });
 }
-  
-// Appeler la fonction pour récupérer les données du quiz
-getQuizById(1);
+
+// Appeler la fonction du serveur depuis le client lorsqu'on accède à l'URL http://127.0.0.1:3000/quiz
+if (window.location.pathname === '/quiz') {
+    getAllQuiz();
+}
 
 function getAllQuizScore() {
-    fetch('http://127.0.0.1:3000/quiz-result', {
+    fetch('http://10.114.236.239:3000/quiz-result', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -390,12 +678,35 @@ function getAllQuizScore() {
     })
     .then(response => response.json())
     .then(data => {
-        // Gérer les données reçues ici
-        console.log(data);
+        createQuizResult(data);
     })
     .catch(error => {
         console.error('Erreur lors de la requête:', error);
     });
 }
 
-getAllQuizScore();
+// Appeler la fonction du serveur depuis le client lorsqu'on accède à l'URL http://127.0.0.1:3000/quiz-result
+if (window.location.pathname === '/quiz-result') {
+    getAllQuizScore();
+}
+
+function insertNewQuiz(data) {
+    fetch('http://10.114.236.239:3000/quiz-manage', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            data: data, 
+            command: 'insertNewQuiz'
+        }),
+    })
+    .catch(error => {
+        console.error('Erreur lors de la requête:', error);
+    });
+}
+
+// Appeler la fonction du serveur depuis le client lorsqu'on accède à l'URL http://127.0.0.1:3000/quiz-result
+if (window.location.pathname === '/quiz-manage') {
+    createQuizManage();
+}

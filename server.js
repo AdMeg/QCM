@@ -3,11 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql');
 
-const hostname = '127.0.0.1';
+const hostname = '10.114.236.239';
 const port = 3000;
 
 const dbConnection = mysql.createConnection({
-    host: '192.168.1.28',
+    host: '10.114.236.239',
     user: 'root',
     password: 'root',
     database: 'qcm'
@@ -33,20 +33,16 @@ const server = http.createServer((req, res) => {
             try {
                 const requestData = JSON.parse(body);
 
-                /*if (req.url === '/quiz') {
-                    if (requestData.command === 'getQuizById') {
-                        handleGetQuizById(res, requestData);
-                    } else if (requestData.command === 'saveUserQuizScore') {
-                        handleSaveUserQuizScore(res, requestData);
-                    }
-                } else if (req.url === '/quiz-result') {
-                    if (requestData.command === 'getAllQuizScore') {
-                        handleGetAllQuizScore(res);
-                    }*/
-                if (requestData.command === 'getQuizById') {
+                if (requestData.command === 'getAllQuiz') {
+                    handleGetAllQuiz(res, requestData);
+                } else if (requestData.command === 'getQuizById') {
                     handleGetQuizById(res, requestData);
                 } else if (requestData.command === 'saveUserQuizScore') {
                     handleSaveUserQuizScore(res, requestData);
+                } else if (requestData.command === 'getAllQuizScore') {
+                    handleGetAllQuizScore(res);
+                } else if (requestData.command === 'insertNewQuiz') {
+                    handleInsertNewQuiz(res, requestData)
                 } else {
                     res.writeHead(400, {'Content-Type': 'application/json'});
                     res.end(JSON.stringify({ error: 'Commande non valide' }));
@@ -59,30 +55,10 @@ const server = http.createServer((req, res) => {
     } else {
         // Si c'est une requête GET à la racine, vous pouvez renvoyer une réponse simple
         if (req.method === 'GET') {
-            if (req.url === '/') {
-                // Serve the HTML file as before
-                fs.readFile('html.html', 'utf8', (err, data) => {
-                    if (err) {
-                        res.writeHead(500, {'Content-Type': 'text/plain'});
-                        res.end('Internal Server Error');
-                        return;
-                    }
-        
-                    res.writeHead(200, {'Content-Type': 'text/html'});
-                    res.end(data);
-                });
-            } else if (req.url === '/app.js') {
-                // Serve the app.js file
-                fs.readFile('app.js', 'utf8', (err, data) => {
-                    if (err) {
-                        res.writeHead(500, {'Content-Type': 'text/plain'});
-                        res.end('Internal Server Error');
-                        return;
-                    }
-        
-                    res.writeHead(200, {'Content-Type': 'application/javascript'});
-                    res.end(data);
-                });
+            if (req.url === '/app.js') {
+                serveFile('app.js', 'application/javascript', res);
+            } else {
+                serveFile('html.html', 'text/html', res);
             }
         } else {
             res.writeHead(404, {'Content-Type': 'text/plain'});
@@ -90,6 +66,35 @@ const server = http.createServer((req, res) => {
         }
     }
 });
+
+const serveFile = (filePath, contentType, res) => {
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            res.writeHead(500, {'Content-Type': 'text/plain'});
+            res.end('Internal Server Error');
+            return;
+        }
+
+        res.writeHead(200, {'Content-Type': contentType});
+        res.end(data);
+    });
+};
+
+// Select all Quiz in database
+function handleGetAllQuiz(res, requestData) {
+    // Effectuer la requête SELECT sur la table quiz
+    const sqlQuery = 'SELECT * FROM quiz';
+    dbConnection.query(sqlQuery, (err, results) => {
+        if (err) {
+            res.writeHead(500, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({ error: 'Erreur de la base de données' }));
+            return;
+        }
+
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify(results));
+    });
+}
 
 // Select a Quiz in database with id
 function handleGetQuizById(res, requestData) {
@@ -145,35 +150,69 @@ function handleGetAllQuizScore(res) {
     });
 }
 
-function handleGetQuizScoreByIdQuiz(res, requestData) {
-    const sqlQuery = 'SELECT * FROM quiz_scores WHERE id_quiz = ?'
-    const id_q = requestData.id_q;
-    dbConnection.query(sqlQuery, [id_q], (err,results) => {
-        if (err) {
+// Insert a new quiz in database
+function handleInsertNewQuiz(res, requestData) {
+    const { questions, valid, start, end, title } = requestData.data;
+
+    // 1. Insérez le quiz
+    const insertQuizQuery = 'INSERT INTO quiz (valid, start, end, name) VALUES (?, ?, ?, ?)';
+    const quizValues = [valid, start, end, title];
+
+    dbConnection.query(insertQuizQuery, quizValues, (quizErr, quizResults) => {
+        if (quizErr) {
+            console.error('Erreur lors de l\'insertion dans quiz:', quizErr);
             res.writeHead(500, {'Content-Type': 'application/json'});
-            res.end(JSON.stringify({ error: 'Erreur de la base de données' }));
+            res.end(JSON.stringify({ error: 'Erreur de la base de données - quiz' }));
             return;
         }
 
+        // 2. Récupérez l'ID du quiz inséré
+        const quizId = quizResults.insertId;
+
+        // 3. Pour chaque question
+        questions.forEach(question => {
+            const { title, source, options, type } = question;
+
+            // 4. Insérez la question
+            const insertQuestionQuery = 'INSERT INTO quiz_questions (id_quiz, title, source, type) VALUES (?, ?, ?, ?)';
+            const questionValues = [quizId, title, source, type];
+
+            dbConnection.query(insertQuestionQuery, questionValues, (questionErr, questionResults) => {
+                if (questionErr) {
+                    console.error('Erreur lors de l\'insertion dans quiz_questions:', questionErr);
+                    res.writeHead(500, {'Content-Type': 'application/json'});
+                    res.end(JSON.stringify({ error: 'Erreur de la base de données - question' }));
+                    return;
+                }
+
+                // 5. Récupérez l'ID de la question insérée
+                const questionId = questionResults.insertId;
+
+                // 6. Pour chaque option
+                options.forEach(option => {
+                    const { name, state } = option;
+
+                    // 7. Insérez l'option
+                    const insertOptionQuery = 'INSERT INTO quiz_options (id_questions, name, state) VALUES (?, ?, ?)';
+                    const optionValues = [questionId, name, state];
+
+                    dbConnection.query(insertOptionQuery, optionValues, (optionErr) => {
+                        if (optionErr) {
+                            console.error('Erreur lors de l\'insertion dans quiz_options:', optionErr);
+                            res.writeHead(500, {'Content-Type': 'application/json'});
+                            res.end(JSON.stringify({ error: 'Erreur de la base de données - option' }));
+                            return;
+                        }
+                    });
+                });
+            });
+        });
+
         res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(JSON.stringify(formatSQLObject(results)));
-    })
+        res.end(JSON.stringify({ success: true }));
+    });
 }
 
-function handleGetQuizScoreByIdUser(res, requestData) {
-    const sqlQuery = 'SELECT * FROM quiz_scores WHERE id_user = ?'
-    const id_user = requestData.id_user;
-    dbConnection.query(sqlQuery, [id_user], (err,results) => {
-        if (err) {
-            res.writeHead(500, {'Content-Type': 'application/json'});
-            res.end(JSON.stringify({ error: 'Erreur de la base de données' }));
-            return;
-        }
-
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(JSON.stringify(formatSQLObject(results)));
-    })
-}
 
 // Format a SQL Object reponse
 function formatSQLObject(results) {
